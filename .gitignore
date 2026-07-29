@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.db/
+/.DS_Store
+/.env
+/AGENTS.md
+/PLAN.md
+/dataset.yaml
+/tests/
+/test_agent/
+/evalon-runs.jsonl
+/evalon-runs.sqlite
+/evalon-runs.sqlite-shm
+/evalon-runs.sqlite-wal
