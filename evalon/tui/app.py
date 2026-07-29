@@ -641,27 +641,168 @@ def _span_depth(
     return depth
 
 
+def _compact_path(value: object, *, file_path: bool = False) -> str:
+    text = str(value or "—")
+    path = Path(text)
+    if not path.is_absolute():
+        return text
+    if not file_path:
+        return path.name or str(path)
+    return "…/" + "/".join(path.parts[-3:])
+
+
+def _summarize_names(names: list[str]) -> str:
+    counts: dict[str, int] = {}
+    for name in names:
+        counts[name] = counts.get(name, 0) + 1
+    return ", ".join(
+        f"{name} ×{count}" if count > 1 else name for name, count in counts.items()
+    )
+
+
+def _tool_input_summary(value: object) -> str:
+    value = _structured_value(value)
+    if not isinstance(value, dict):
+        return _preview(value, 72)
+
+    parts: list[str] = []
+    used: set[str] = set()
+    for key in ("pattern", "query", "task", "command", "cmd"):
+        if value.get(key) not in (None, ""):
+            parts.append(f'{key} "{_preview(value[key], 34)}"')
+            used.add(key)
+            break
+
+    if value.get("file_path") not in (None, ""):
+        parts.append(_compact_path(value["file_path"], file_path=True))
+        used.add("file_path")
+    elif value.get("path") not in (None, ""):
+        path = _compact_path(value["path"])
+        parts.append(f"in {path}" if parts else path)
+        used.add("path")
+
+    offset = value.get("offset")
+    limit = value.get("limit")
+    if isinstance(offset, int) and isinstance(limit, int):
+        parts.append(f"lines {offset}–{offset + limit - 1}")
+        used.update({"offset", "limit"})
+    elif isinstance(offset, int):
+        parts.append(f"from line {offset}")
+        used.add("offset")
+    elif isinstance(limit, int):
+        parts.append(f"first {limit} lines")
+        used.add("limit")
+
+    for key, item in value.items():
+        if key in used or item in (None, "") or isinstance(item, (dict, list)):
+            continue
+        parts.append(f"{key} {_preview(item, 24)}")
+        if len(parts) == 3:
+            break
+    return " · ".join(parts) or "no input"
+
+
+def _line_range(value: str) -> tuple[int, int] | None:
+    numbers = [
+        int(prefix)
+        for line in value.splitlines()
+        if "\t" in line and (prefix := line.split("\t", 1)[0].strip()).isdigit()
+    ]
+    return (numbers[0], numbers[-1]) if numbers else None
+
+
+def _tool_output_summary(span: dict[str, Any]) -> str:
+    error = _structured_value(span.get("error"))
+    if error is not None:
+        if isinstance(error, dict):
+            error_type = str(error.get("type") or "error")
+            message = _preview(error.get("message"), 44)
+            return f"{error_type} · {message}"
+        return f"error · {_preview(error, 52)}"
+
+    value = _structured_value(span.get("output"))
+    if value is None:
+        return "no output"
+    if not isinstance(value, str):
+        if isinstance(value, list):
+            return f"{len(value)} items · {_preview(value[:1], 42)}"
+        if isinstance(value, dict):
+            pairs = [
+                f"{key} {_preview(item, 22)}" for key, item in list(value.items())[:3]
+            ]
+            return " · ".join(pairs) or "empty object"
+        return _preview(value, 72)
+
+    name = str(span.get("name") or "")
+    lines = [line for line in value.splitlines() if line.strip()]
+    if name == "file_reader" or value.startswith("File Content:"):
+        line_range = _line_range(value)
+        if line_range is not None:
+            start, end = line_range
+            return f"{end - start + 1} lines read"
+        return f"{max(0, len(lines) - 1)} lines read"
+    if name == "glob":
+        count = len(lines)
+        first = _compact_path(lines[0], file_path=True) if lines else "—"
+        label = "file" if count == 1 else "files"
+        return f"{count} {label} · {first}"
+    if name == "grep_search":
+        count = len(lines)
+        first = lines[0] if lines else "—"
+        if ":" in first:
+            prefix, remainder = first.split(":", 1)
+            if prefix.isdigit():
+                first = f"line {prefix} · {_preview(remainder, 30)}"
+            else:
+                path, line, *_ = first.split(":", 2)
+                if line.isdigit():
+                    first = f"{_compact_path(path, file_path=True)}:{line}"
+        label = "match" if count == 1 else "matches"
+        return f"{count} {label} · {first}"
+    if name == "ls":
+        count = len(lines)
+        label = "entry" if count == 1 else "entries"
+        return f"{count} {label} · {_preview(lines[0] if lines else None, 42)}"
+    return _preview(value, 72)
+
+
+def _llm_input_summary(value: object) -> str:
+    request = value if isinstance(value, dict) else {}
+    messages = request.get("messages")
+    if not isinstance(messages, list):
+        return _preview(value, 72)
+
+    trailing_tools: list[str] = []
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") != "tool":
+            break
+        trailing_tools.append(str(message.get("name") or "tool"))
+    if trailing_tools:
+        trailing_tools.reverse()
+        return f"RESULTS · {_summarize_names(trailing_tools)}"
+
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") == "system":
+            continue
+        tool_calls = message.get("tool_calls")
+        if isinstance(tool_calls, list) and tool_calls:
+            names = []
+            for call in tool_calls:
+                function = call.get("function") if isinstance(call, dict) else None
+                function = function if isinstance(function, dict) else {}
+                names.append(str(function.get("name") or "tool"))
+            return f"CALLS · {_summarize_names(names)}"
+        role = str(message.get("role") or "input").upper()
+        return f"{role} · {_preview(message.get('content'), 60)}"
+    return "request recorded"
+
+
 def _span_request_summary(span: dict[str, Any]) -> str:
     kind = str(span.get("kind") or "").lower()
     value = span.get("input")
-    metadata = span.get("metadata")
-    metadata = metadata if isinstance(metadata, dict) else {}
-
     if kind == "llm":
-        request = value if isinstance(value, dict) else {}
-        provider = str(
-            metadata.get("provider")
-            or request.get("provider")
-            or "provider"
-        )
-        model = _short_id(
-            metadata.get("model") or request.get("model") or "model",
-            28,
-        )
-        messages = request.get("messages")
-        message_count = len(messages) if isinstance(messages, list) else 0
-        return f"{provider} · {model} · {message_count} msgs"
-    return _preview(value, 72)
+        return _llm_input_summary(value)
+    return _tool_input_summary(value)
 
 
 def _span_result_summary(
@@ -669,31 +810,38 @@ def _span_result_summary(
     following_spans: list[dict[str, Any]],
 ) -> str:
     kind = str(span.get("kind") or "").lower()
-    if span.get("error") is not None:
-        return f"error · {_preview(span.get('error'), 62)}"
     if kind != "llm":
-        return _preview(span.get("output"), 72)
+        return _tool_output_summary(span)
 
-    metadata = span.get("metadata")
-    metadata = metadata if isinstance(metadata, dict) else {}
     resolved = _resolved_llm_output(span, following_spans)
-    response: object = resolved
+    response: object = None
+    tool_calls: object = None
     if isinstance(resolved, dict):
-        response = (
-            resolved.get("response")
-            or resolved.get("content")
-            or resolved.get("tool_calls")
-        )
-    tool_count = len(_following_tool_spans(following_spans))
-    parts: list[str] = []
-    if tool_count:
-        parts.append(f"{tool_count} tool call{'s' if tool_count != 1 else ''}")
-    elif response not in (None, "", [], {}):
-        parts.append(_preview(response, 48))
-    chunk_count = int(metadata.get("chunk_count") or 0)
-    if chunk_count:
-        parts.append(f"{chunk_count} chunks")
-    return " · ".join(parts) or "response recorded"
+        raw_response = resolved.get("response")
+        if isinstance(raw_response, dict):
+            response = raw_response.get("content")
+            tool_calls = raw_response.get("tool_calls")
+        else:
+            response = raw_response
+        response = resolved.get("content") or response
+        tool_calls = resolved.get("tool_calls") or tool_calls
+    else:
+        response = resolved
+
+    following_tools = _following_tool_spans(following_spans)
+    if following_tools:
+        names = [str(tool.get("name") or "tool") for tool in following_tools]
+        return f"CALLS · {_summarize_names(names)}"
+    if isinstance(tool_calls, list) and tool_calls:
+        names = []
+        for call in tool_calls:
+            function = call.get("function") if isinstance(call, dict) else None
+            function = function if isinstance(function, dict) else {}
+            names.append(str(function.get("name") or "tool"))
+        return f"CALLS · {_summarize_names(names)}"
+    if response not in (None, "", [], {}):
+        return f"ANSWER · {_preview(response, 60)}"
+    return "response recorded"
 
 
 class MetricCard(Static):
@@ -781,8 +929,8 @@ class ProjectIndexTable(DataTable[object]):
 
 
 class ExecutionFlowTable(DataTable[object]):
-    MIN_COLUMN_WIDTHS = (8, 7, 18, 8, 9, 22, 22)
-    COLUMN_WEIGHTS = (1, 1, 3, 1, 1, 5, 5)
+    MIN_COLUMN_WIDTHS = (18, 7, 8, 9, 8, 22, 22)
+    COLUMN_WEIGHTS = (3, 1, 1, 1, 1, 5, 5)
 
     def _on_resize(self, event: events.Resize) -> None:
         super()._on_resize(event)
@@ -985,28 +1133,6 @@ class EvalonApp(App[None]):
         color: #c78343;
         background: #050301;
         border: tall #2a1609;
-    }
-    #detail-io {
-        height: 10;
-        margin: 1 1 0 1;
-    }
-    #trace-input-panel {
-        width: 1fr;
-        margin-right: 1;
-        background: #050301;
-        border: tall #2a1609;
-    }
-    #trace-output-panel {
-        width: 1fr;
-        background: #050301;
-        border: tall #2a1609;
-    }
-    #trace-input, #trace-output {
-        height: 1fr;
-        padding: 0 1;
-        color: #c78343;
-        background: #030201;
-        border: none;
     }
     #detail-flow {
         height: 1fr;
@@ -1242,28 +1368,9 @@ class EvalonApp(App[None]):
         with Vertical(id="trace-detail-view"):
             yield Static("TRACE DETAIL", id="detail-title")
             yield Static("select a trace", id="detail-meta")
-            with Horizontal(id="detail-io"):
-                with Vertical(id="trace-input-panel"):
-                    yield Label(" TRACE INPUT", classes="section-title")
-                    yield RichLog(
-                        id="trace-input",
-                        markup=False,
-                        wrap=True,
-                        min_width=1,
-                        auto_scroll=False,
-                    )
-                with Vertical(id="trace-output-panel"):
-                    yield Label(" TRACE OUTPUT", classes="section-title")
-                    yield RichLog(
-                        id="trace-output",
-                        markup=False,
-                        wrap=True,
-                        min_width=1,
-                        auto_scroll=False,
-                    )
             with Vertical(id="detail-flow"):
                 yield Label(
-                    " EXECUTION FLOW  //  ENTER OPEN SPAN",
+                    " EXECUTION FLOW",
                     classes="section-title",
                 )
                 yield ExecutionFlowTable(
@@ -1327,7 +1434,7 @@ class EvalonApp(App[None]):
                         min_width=1,
                         auto_scroll=False,
                     )
-                with TabPane("EVENTS", id="span-events-tab"):
+                with TabPane("RAW", id="span-events-tab"):
                     yield RichLog(
                         id="span-events",
                         markup=False,
@@ -1377,13 +1484,13 @@ class EvalonApp(App[None]):
             ExecutionFlowTable,
         )
         execution_flow_table.add_columns(
-            "OFFSET",
-            "KIND",
             "OPERATION",
-            "STATUS",
+            "KIND",
+            "OFFSET",
             "DURATION",
-            "REQUEST",
-            "RESULT",
+            "STATUS",
+            "INPUT",
+            "OUTPUT",
         )
         self.call_after_refresh(execution_flow_table.fit_columns)
         self.set_interval(self.refresh_seconds, self._live_refresh)
@@ -1870,16 +1977,6 @@ class EvalonApp(App[None]):
         self.query_one("#detail-meta", Static).update(
             self._trace_meta_content(detail, include_io=False)
         )
-        self._write_value(
-            self.query_one("#trace-input", RichLog),
-            trace.get("input"),
-            style="#d28a48",
-        )
-        self._write_value(
-            self.query_one("#trace-output", RichLog),
-            trace.get("output"),
-            style="#b96f34",
-        )
         self._render_execution_flow(detail)
 
     def _render_execution_flow(self, detail: TraceDetail) -> None:
@@ -1921,11 +2018,11 @@ class EvalonApp(App[None]):
                 style="#d28a48",
             )
             table.add_row(
-                f"+{elapsed:7.3f}s",
-                kind_cell,
                 operation,
-                _status(str(span.get("status") or "")),
+                kind_cell,
+                f"+{elapsed:7.3f}s",
                 _duration(float(span.get("latency_ms") or 0)),
+                _status(str(span.get("status") or "")),
                 _span_request_summary(span),
                 _span_result_summary(span, detail.spans[index + 1 :]),
                 key=span_id,
