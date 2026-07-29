@@ -184,7 +184,7 @@ class DitherLogo(Static):
                     logical_column += len(gap)
             lines.append(line)
 
-        subtitle = "Evalon  //  local agent observability"
+        subtitle = "agent observability"
         subtitle_left = max(0, (self.size.width - len(subtitle)) // 2)
         lines.append(Text())
         label = Text(" " * subtitle_left)
