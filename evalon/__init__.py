@@ -1,10 +1,10 @@
 """Public API for Evalon."""
 
-from evalon.client import (
+from evalon.core.client import (
     EvalonClient,
+    anthropic,
     current_session,
     current_span,
-    anthropic,
     current_trace,
     get_client,
     init,
@@ -19,35 +19,18 @@ from evalon.client import (
     tool,
     trace,
 )
-from evalon.errors import EvalonError, EvalonStorageError
-from evalon.evals import (
-    Dataset,
-    DatasetEntry,
-    EvalConfig,
-    EvalResult,
-    JudgeResult,
-    LLMJudgeConfig,
-    load_dataset,
-    run_evals,
-    run_llm_judge,
-)
+from evalon.core.errors import EvalonError, EvalonStorageError
+from evalon.core.trace import Session, Span, Trace
 from evalon.storage import JsonlStorage, SqliteStorage
-from evalon.trace import Session, Span, Trace
 
 __all__ = [
-    "Dataset",
-    "DatasetEntry",
-    "EvalConfig",
-    "EvalResult",
     "EvalonClient",
     "EvalonError",
     "EvalonStorageError",
     "JsonlStorage",
-    "JudgeResult",
-    "LLMJudgeConfig",
     "Session",
-    "SqliteStorage",
     "Span",
+    "SqliteStorage",
     "Trace",
     "anthropic",
     "current_session",
@@ -55,15 +38,12 @@ __all__ = [
     "current_trace",
     "get_client",
     "init",
-    "load_dataset",
     "observe",
     "openai",
     "openrouter",
     "record_event",
     "record_metric",
     "record_output",
-    "run_evals",
-    "run_llm_judge",
     "session",
     "span",
     "tool",

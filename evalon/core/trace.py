@@ -10,7 +10,7 @@ from time import perf_counter
 from types import TracebackType
 from typing import Any
 
-from evalon.json import sanitize, utc_now_iso
+from evalon.core.json import sanitize, utc_now_iso
 
 
 _active_trace: contextvars.ContextVar["Trace | None"] = contextvars.ContextVar(

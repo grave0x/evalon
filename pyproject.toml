@@ -1,15 +1,10 @@
 [project]
 name = "evalon"
 version = "0.1.0"
-description = "Lightweight tracing and evaluation harness for Python agents"
+description = "Local observability for Python agents"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "httpx>=0.27.0",
-    "litellm>=1.91.0",
-    "pydantic>=2.0.0",
-    "pyyaml>=6.0",
-    "python-dotenv>=1.0.0",
     "rich>=13.0.0",
     "textual>=5.0",
 ]
@@ -19,11 +14,12 @@ providers = [
     "anthropic>=0.40.0",
     "openai>=1.0.0",
 ]
+cost = [
+    "litellm>=1.91.0",
+]
 
 [project.scripts]
 evalon = "evalon.tui:main"
-evalon-dashboard = "evalon.dashboard:main"
-evalon-judge = "evalon.judge_cli:main"
 
 [dependency-groups]
 dev = [

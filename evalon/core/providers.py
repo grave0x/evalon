@@ -7,8 +7,8 @@ from time import perf_counter
 from types import SimpleNamespace
 from typing import Any, Callable
 
-from evalon.json import sanitize
-from evalon.trace import Span, Trace, current_trace
+from evalon.core.json import sanitize
+from evalon.core.trace import Span, Trace, current_trace
 
 
 def _get_attr_or_key(value: Any, name: str, default: Any = None) -> Any:
@@ -265,7 +265,7 @@ def _record_response(
     if model:
         span.metadata["model"] = model
     if usage and model:
-        from evalon.cost import calculate_cost
+        from evalon.core.cost import calculate_cost
 
         prompt_tokens = usage.get("prompt_tokens", usage.get("input_tokens", 0)) or 0
         completion_tokens = usage.get("completion_tokens", usage.get("output_tokens", 0)) or 0
@@ -689,7 +689,7 @@ def _start_auto_trace(
     request_payload: dict[str, Any],
 ) -> tuple[Trace, Any]:
     # Import lazily to avoid the client/providers import cycle.
-    from evalon.client import get_client
+    from evalon.core.client import get_client
 
     trace_cm = get_client().trace(
         f"{provider}.{operation}",

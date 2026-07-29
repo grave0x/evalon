@@ -27,7 +27,7 @@ from textual.widgets import (
     TabPane,
 )
 
-from evalon.paths import default_db_path
+from evalon.core.paths import default_db_path
 from evalon.tui.dither import (
     DitherButton,
     DitherLogo,

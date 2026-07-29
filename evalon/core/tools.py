@@ -7,8 +7,8 @@ import inspect
 from time import perf_counter
 from typing import Any, Callable
 
-from evalon.json import sanitize
-from evalon.trace import current_trace
+from evalon.core.json import sanitize
+from evalon.core.trace import current_trace
 
 
 def _call_payload(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:

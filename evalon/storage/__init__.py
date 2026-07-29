@@ -8,8 +8,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from evalon.errors import EvalonStorageError
-from evalon.json import sanitize
+from evalon.core.errors import EvalonStorageError
+from evalon.core.json import sanitize
 
 # SQLite schema for traces, events, and metrics
 _SCHEMA = """
@@ -65,18 +65,6 @@ CREATE TABLE IF NOT EXISTS metrics (
     UNIQUE(trace_id, name)
 );
 
-CREATE TABLE IF NOT EXISTS eval_results (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    trace_id TEXT NOT NULL,
-    eval_name TEXT NOT NULL,
-    passed INTEGER NOT NULL,
-    message TEXT,
-    details_json TEXT,
-    run_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (trace_id) REFERENCES traces(id) ON DELETE CASCADE,
-    UNIQUE(trace_id, eval_name)
-);
-
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     project TEXT NOT NULL,
@@ -116,8 +104,6 @@ CREATE INDEX IF NOT EXISTS idx_spans_trace_id ON spans(trace_id);
 CREATE INDEX IF NOT EXISTS idx_spans_parent_span_id ON spans(parent_span_id);
 CREATE INDEX IF NOT EXISTS idx_spans_kind ON spans(kind);
 CREATE INDEX IF NOT EXISTS idx_metrics_trace_id ON metrics(trace_id);
-CREATE INDEX IF NOT EXISTS idx_eval_results_trace_id ON eval_results(trace_id);
-CREATE INDEX IF NOT EXISTS idx_eval_results_eval_name ON eval_results(eval_name);
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project);
 CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
 CREATE INDEX IF NOT EXISTS idx_session_events_session_id ON session_events(session_id);
@@ -154,15 +140,6 @@ class JsonlStorage:
 
     def delete_trace(self, trace_id: str) -> bool:
         raise EvalonStorageError("JsonlStorage does not support delete. Use SqliteStorage.")
-
-    def write_eval_results(self, trace_id: str, results: list[Any]) -> None:
-        raise EvalonStorageError("JsonlStorage does not support eval results. Use SqliteStorage.")
-
-    def get_eval_results(self, trace_id: str) -> list[dict[str, Any]]:
-        raise EvalonStorageError("JsonlStorage does not support eval result queries. Use SqliteStorage.")
-
-    def query_eval_results(self, **kwargs: Any) -> list[dict[str, Any]]:
-        raise EvalonStorageError("JsonlStorage does not support eval result queries. Use SqliteStorage.")
 
     def query_sessions(self, **kwargs: Any) -> list[dict[str, Any]]:
         raise EvalonStorageError("JsonlStorage does not support session queries. Use SqliteStorage.")
@@ -255,17 +232,6 @@ class SqliteStorage:
                     value REAL NOT NULL,
                     FOREIGN KEY (trace_id) REFERENCES traces(id) ON DELETE CASCADE,
                     UNIQUE(trace_id, name)
-                );
-                CREATE TABLE IF NOT EXISTS eval_results (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    trace_id TEXT NOT NULL,
-                    eval_name TEXT NOT NULL,
-                    passed INTEGER NOT NULL,
-                    message TEXT,
-                    details_json TEXT,
-                    run_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (trace_id) REFERENCES traces(id) ON DELETE CASCADE,
-                    UNIQUE(trace_id, eval_name)
                 );
             """)
             # Session tables (may fail on older sqlite, that's ok)
@@ -800,50 +766,6 @@ class SqliteStorage:
             "metrics": metrics,
         }
 
-    def write_eval_results(self, trace_id: str, results: list[Any]) -> None:
-        """Write eval results for a trace (upserts by trace_id + eval_name)."""
-        try:
-            with self._lock:
-                with self._get_connection() as conn:
-                    for result in results:
-                        conn.execute(
-                            """
-                            INSERT OR REPLACE INTO eval_results
-                            (trace_id, eval_name, passed, message, details_json)
-                            VALUES (?, ?, ?, ?, ?)
-                            """,
-                            (
-                                trace_id,
-                                result.name,
-                                1 if result.passed else 0,
-                                result.message,
-                                json.dumps(result.details),
-                            ),
-                        )
-                    conn.commit()
-        except sqlite3.Error as exc:
-            raise EvalonStorageError(f"Failed to write eval results for {trace_id}") from exc
-
-    def get_eval_results(self, trace_id: str) -> list[dict[str, Any]]:
-        """Get all eval results for a trace."""
-        with self._get_connection() as conn:
-            rows = conn.execute(
-                "SELECT * FROM eval_results WHERE trace_id = ? ORDER BY run_at",
-                (trace_id,),
-            ).fetchall()
-            return [
-                {
-                    "id": r["id"],
-                    "trace_id": r["trace_id"],
-                    "eval_name": r["eval_name"],
-                    "passed": bool(r["passed"]),
-                    "message": r["message"],
-                    "details": json.loads(r["details_json"]) if r["details_json"] else {},
-                    "run_at": r["run_at"],
-                }
-                for r in rows
-            ]
-
     def query_metrics(
         self,
         *,
@@ -876,55 +798,6 @@ class SqliteStorage:
                 params + [limit],
             ).fetchall()
             return [dict(row) for row in rows]
-
-    def query_eval_results(
-        self,
-        *,
-        eval_name: str | None = None,
-        passed: bool | None = None,
-        project: str | None = None,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
-        """Query eval results with optional filters."""
-        conditions = []
-        params: list[Any] = []
-
-        if eval_name:
-            conditions.append("er.eval_name = ?")
-            params.append(eval_name)
-        if passed is not None:
-            conditions.append("er.passed = ?")
-            params.append(1 if passed else 0)
-        if project:
-            conditions.append("t.project = ?")
-            params.append(project)
-
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
-        join_clause = "JOIN traces t ON er.trace_id = t.id" if project else ""
-
-        with self._get_connection() as conn:
-            rows = conn.execute(
-                f"""
-                SELECT er.* FROM eval_results er
-                {join_clause}
-                WHERE {where_clause}
-                ORDER BY er.run_at DESC
-                LIMIT ?
-                """,
-                params + [limit],
-            ).fetchall()
-            return [
-                {
-                    "id": r["id"],
-                    "trace_id": r["trace_id"],
-                    "eval_name": r["eval_name"],
-                    "passed": bool(r["passed"]),
-                    "message": r["message"],
-                    "details": json.loads(r["details_json"]) if r["details_json"] else {},
-                    "run_at": r["run_at"],
-                }
-                for r in rows
-            ]
 
     def query_sessions(
         self,

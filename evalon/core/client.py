@@ -8,11 +8,11 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, ContextManager
 
-from evalon.providers import AnthropicWrapper, OpenAIWrapper
-from evalon.paths import default_db_path
+from evalon.core.providers import AnthropicWrapper, OpenAIWrapper
+from evalon.core.paths import default_db_path
 from evalon.storage import JsonlStorage, SqliteStorage
-from evalon.tools import instrument_tool
-from evalon.trace import (
+from evalon.core.tools import instrument_tool
+from evalon.core.trace import (
     Session,
     SessionContext,
     Span,

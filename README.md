@@ -1,8 +1,8 @@
 # Evalon
 
-Evalon adds local tracing, debugging, and evaluation to Python agents. Traces
-are stored in SQLite on your machine and can be inspected in the built-in
-terminal UI.
+Evalon is local observability for Python agents. It records traces, spans,
+events, metrics, inputs, outputs, and errors in SQLite, then lets you inspect
+them in the built-in terminal UI.
 
 ## First trace
 
@@ -148,7 +148,7 @@ when the trace boundary or recorded output needs to be managed manually.
 Decorated tools automatically become child spans when called within either
 kind of trace.
 
-## Query stored traces
+## Inspect stored traces
 
 `evalon.init` returns the active client, including its local storage:
 
@@ -158,10 +158,4 @@ client = evalon.init("support-agent")
 traces = client.storage.query(project="support-agent", status="success")
 trace = client.storage.get_trace("trace_abc123")
 error_count = client.storage.count(status="error")
-```
-
-The browser dashboard remains available when a web view is more convenient:
-
-```bash
-uv run evalon-dashboard
 ```
