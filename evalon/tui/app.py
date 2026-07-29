@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -40,7 +41,6 @@ from evalon.tui.store import (
     TraceDetail,
     TraceRow,
 )
-
 
 EVALON_THEME = Theme(
     name="evalon",
@@ -160,6 +160,21 @@ def _format_value(value: object) -> str:
         )
     except (TypeError, ValueError):
         return str(value)
+
+
+def _span_io_widths(input_text: str, output_text: str) -> tuple[int, int]:
+    """Return balanced pane weights based on each side's rendered text."""
+
+    def demand(text: str) -> int:
+        lines = text.splitlines() or ["—"]
+        return sum(max(12, min(len(line), 160)) for line in lines)
+
+    input_demand = math.sqrt(demand(input_text))
+    output_demand = math.sqrt(demand(output_text))
+    input_share = input_demand / (input_demand + output_demand)
+    input_share = min(0.6, max(0.4, input_share))
+    input_width = round(input_share * 100)
+    return input_width, 100 - input_width
 
 
 def _format_span_input(
@@ -1220,13 +1235,15 @@ class EvalonApp(App[None]):
         padding: 1;
     }
     #span-input-panel {
-        width: 2fr;
+        width: 1fr;
+        min-width: 24;
         margin-right: 1;
         background: #050301;
         border: tall #3a1d08;
     }
     #span-output-panel {
-        width: 3fr;
+        width: 1fr;
+        min-width: 24;
         background: #050301;
         border: tall #6f2b0d;
     }
@@ -1545,7 +1562,13 @@ class EvalonApp(App[None]):
         if self.active_view != "span-detail":
             return
         self.query_one("#span-detail-body", TabbedContent).active = pane_id
-        self.call_after_refresh(self.query_one(log_id, RichLog).focus)
+        if self.selected_trace_id and self.selected_span_id:
+            self.call_after_refresh(
+                self._render_visible_span_panel,
+                self.selected_trace_id,
+                self.selected_span_id,
+                log_id,
+            )
 
     def action_show_span_input(self) -> None:
         self._show_span_panel("span-call-tab", "#span-input")
@@ -1812,6 +1835,22 @@ class EvalonApp(App[None]):
             and self.selected_span_id == span_id
         ):
             self._render_span_detail(trace_id, span_id)
+
+    def _render_visible_span_panel(
+        self,
+        trace_id: str,
+        span_id: str,
+        log_id: str,
+    ) -> None:
+        """Populate a newly visible tab only after Textual lays it out."""
+        if (
+            self.active_view != "span-detail"
+            or self.selected_trace_id != trace_id
+            or self.selected_span_id != span_id
+        ):
+            return
+        self._render_span_detail(trace_id, span_id)
+        self.query_one(log_id, RichLog).focus()
 
     def _set_view(self, view: str) -> None:
         home = self.query_one("#home", Vertical)
@@ -2094,39 +2133,81 @@ class EvalonApp(App[None]):
             ),
             None,
         )
-        self._write_value(
-            self.query_one("#span-input", RichLog),
-            _format_span_input(
-                span,
-                previous_llm_span=previous_llm_span,
-                trace_input=detail.trace.get("input"),
-                show_system_prompt=span_id
-                == next(
-                    (
-                        str(candidate.get("id") or "")
-                        for candidate in detail.spans
-                        if str(candidate.get("kind") or "").lower() == "llm"
-                    ),
-                    None,
+        span_input = _format_span_input(
+            span,
+            previous_llm_span=previous_llm_span,
+            trace_input=detail.trace.get("input"),
+            show_system_prompt=span_id
+            == next(
+                (
+                    str(candidate.get("id") or "")
+                    for candidate in detail.spans
+                    if str(candidate.get("kind") or "").lower() == "llm"
                 ),
+                None,
             ),
-            style="#d28a48",
         )
-        self._write_value(
-            self.query_one("#span-output", RichLog),
-            _format_span_output(span, detail.spans[span_index + 1 :]),
-            style="#b96f34",
+        span_output = _format_span_output(
+            span,
+            detail.spans[span_index + 1 :],
         )
+        input_width, output_width = _span_io_widths(span_input, span_output)
+        input_panel = self.query_one("#span-input-panel", Vertical)
+        output_panel = self.query_one("#span-output-panel", Vertical)
+        input_style = f"{input_width}fr"
+        output_style = f"{output_width}fr"
+        io_layout_changed = (
+            str(input_panel.styles.width) != input_style
+            or str(output_panel.styles.width) != output_style
+        )
+        input_panel.styles.width = input_style
+        output_panel.styles.width = output_style
+
+        active_tab = tabs.active
+        if active_tab == "span-call-tab":
+            input_log = self.query_one("#span-input", RichLog)
+            output_log = self.query_one("#span-output", RichLog)
+            if (
+                io_layout_changed
+                or input_log.scrollable_content_region.width <= 1
+                or output_log.scrollable_content_region.width <= 1
+            ):
+                self.call_after_refresh(
+                    self._render_visible_span_detail,
+                    trace_id,
+                    span_id,
+                )
+                return
+            self._write_value(input_log, span_input, style="#d28a48")
+            self._write_value(output_log, span_output, style="#b96f34")
+            return
+
         context: dict[str, object] = {
             "metadata": span.get("metadata") or {},
         }
         if span.get("error") is not None:
             context["error"] = span.get("error")
-        self._write_value(
-            self.query_one("#span-metadata", RichLog),
-            context,
-            style="#c78343",
-        )
+
+        if active_tab == "span-metadata-tab":
+            metadata_log = self.query_one("#span-metadata", RichLog)
+            if metadata_log.scrollable_content_region.width <= 1:
+                self.call_after_refresh(
+                    self._render_visible_span_detail,
+                    trace_id,
+                    span_id,
+                )
+                return
+            self._write_value(metadata_log, context, style="#c78343")
+            return
+
+        events_log = self.query_one("#span-events", RichLog)
+        if events_log.scrollable_content_region.width <= 1:
+            self.call_after_refresh(
+                self._render_visible_span_detail,
+                trace_id,
+                span_id,
+            )
+            return
         span_events = [
             event
             for event in detail.events
