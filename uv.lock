@@ -319,6 +319,7 @@ name = "evalon"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "jsonschema" },
     { name = "pyyaml" },
     { name = "rich" },
     { name = "textual" },
@@ -343,6 +344,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'providers'", specifier = ">=0.40.0" },
+    { name = "jsonschema", specifier = ">=4.0" },
     { name = "litellm", marker = "extra == 'cost'", specifier = ">=1.91.0" },
     { name = "openai", marker = "extra == 'providers'", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },

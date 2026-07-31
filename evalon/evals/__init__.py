@@ -26,6 +26,13 @@ from evalon.evals.contracts import (
     RunStatus,
 )
 from evalon.evals.datasets import DatasetDiff, DatasetService, TraceCaseProposal
+from evalon.evals.evaluators import (
+    StaticEvaluator,
+    evaluate_static,
+    get_static_evaluator,
+    list_static_evaluators,
+    validate_evaluator_definition,
+)
 from evalon.evals.store import EvalStore
 
 __all__ = [
@@ -51,7 +58,12 @@ __all__ = [
     "JudgeDefinition",
     "RunStatus",
     "ScoreAggregation",
+    "StaticEvaluator",
     "TraceCaseProposal",
     "aggregate_case_statuses",
     "aggregate_evaluation_results",
+    "evaluate_static",
+    "get_static_evaluator",
+    "list_static_evaluators",
+    "validate_evaluator_definition",
 ]
