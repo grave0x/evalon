@@ -25,6 +25,12 @@ from evalon.evals.contracts import (
     JsonValue,
     RunStatus,
 )
+from evalon.evals.custom import (
+    evaluator,
+    execute_custom_evaluator,
+    load_evaluator,
+    run_custom_evaluator,
+)
 from evalon.evals.datasets import DatasetDiff, DatasetService, TraceCaseProposal
 from evalon.evals.evaluators import (
     StaticEvaluator,
@@ -63,7 +69,11 @@ __all__ = [
     "aggregate_case_statuses",
     "aggregate_evaluation_results",
     "evaluate_static",
+    "evaluator",
+    "execute_custom_evaluator",
     "get_static_evaluator",
     "list_static_evaluators",
+    "load_evaluator",
+    "run_custom_evaluator",
     "validate_evaluator_definition",
 ]
