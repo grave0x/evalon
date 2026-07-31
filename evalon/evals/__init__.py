@@ -25,6 +25,7 @@ from evalon.evals.contracts import (
     JsonValue,
     RunStatus,
 )
+from evalon.evals.datasets import DatasetDiff, DatasetService, TraceCaseProposal
 from evalon.evals.store import EvalStore
 
 __all__ = [
@@ -33,6 +34,8 @@ __all__ = [
     "CaseRunStatus",
     "Dataset",
     "DatasetCase",
+    "DatasetDiff",
+    "DatasetService",
     "DatasetVersion",
     "EvalCaseRun",
     "EvalRun",
@@ -48,6 +51,7 @@ __all__ = [
     "JudgeDefinition",
     "RunStatus",
     "ScoreAggregation",
+    "TraceCaseProposal",
     "aggregate_case_statuses",
     "aggregate_evaluation_results",
 ]

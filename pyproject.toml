@@ -1,10 +1,11 @@
 [project]
 name = "evalon"
 version = "0.1.0"
-description = "Local observability for Python agents"
+description = "Local observability and evaluation for Python agents"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "PyYAML>=6.0",
     "rich>=13.0.0",
     "textual>=5.0",
 ]
