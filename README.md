@@ -89,6 +89,31 @@ openai_client = evalon.openai()
 async_openai_client = evalon.openai(async_client=True)
 anthropic_client = evalon.anthropic()
 openrouter_client = evalon.openrouter()
+groq_client = evalon.groq()
+mistral_client = evalon.mistral()
+deepseek_client = evalon.deepseek()
+together_client = evalon.together()
+xai_client = evalon.xai()
+gemini_client = evalon.gemini()
+```
+
+`groq`, `mistral`, `deepseek`, `together`, and `xai` are OpenAI-compatible
+providers — they return the same instrumented client surface as `openai()` and
+accept the same keyword arguments (plus `async_client=True`). `gemini()` wraps
+the Google GenAI SDK and exposes `client.models.generate_content` and
+`client.models.stream_generate_content`:
+
+```python
+evalon.init("support-agent")
+client = evalon.gemini()
+
+@evalon.observe
+def answer(question: str) -> str:
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=question,
+    )
+    return response.text
 ```
 
 When a wrapped provider is called inside `observe` or `trace`, the LLM call is
@@ -110,10 +135,12 @@ sdk_client = OpenAI(timeout=30)
 client = evalon.openai(sdk_client)
 ```
 
-The same pattern works with `evalon.anthropic(existing_client)` and
-`evalon.openrouter(existing_client)`. If your application already installs its
+The same pattern works with `evalon.anthropic(existing_client)`,
+`evalon.openrouter(existing_client)`, the other OpenAI-compatible constructors,
+and `evalon.gemini(existing_client)`. If your application already installs its
 provider SDK, the base `evalon` package is enough. The `providers` extra is only
-needed when you want Evalon to install the OpenAI and Anthropic SDKs for you.
+needed when you want Evalon to install the OpenAI, Anthropic, and Google GenAI
+SDKs for you.
 
 ## Advanced tracing
 

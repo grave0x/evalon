@@ -18,6 +18,21 @@ def _get_attr_or_key(value: Any, name: str, default: Any = None) -> Any:
 
 
 def _extract_usage(response: Any) -> dict[str, Any]:
+    # Gemini: usage lives on usage_metadata with different field names.
+    usage_metadata = _get_attr_or_key(response, "usage_metadata")
+    if usage_metadata is not None:
+        output: dict[str, Any] = {
+            "input_tokens": _get_attr_or_key(usage_metadata, "prompt_token_count") or 0,
+            "output_tokens": _get_attr_or_key(usage_metadata, "candidates_token_count") or 0,
+        }
+        total = _get_attr_or_key(usage_metadata, "total_token_count")
+        if total is not None:
+            output["total_tokens"] = total
+        cached = _get_attr_or_key(usage_metadata, "cached_content_token_count") or 0
+        if cached:
+            output["cache_read_input_tokens"] = cached
+        return output
+
     usage = _get_attr_or_key(response, "usage")
     if usage is None:
         return {}
@@ -120,10 +135,14 @@ def _extract_anthropic_content(response: Any) -> str | list[Any] | None:
 
 
 def _extract_response_text(response: Any) -> str | None:
-    """Best-effort assistant text for preview (chat, responses, anthropic)."""
-    # OpenAI Responses API
+    """Best-effort assistant text for preview (chat, responses, anthropic, gemini)."""
+    # OpenAI Responses API / Gemini (text property)
     for key in ("output_text", "text"):
-        value = _get_attr_or_key(response, key)
+        try:
+            value = _get_attr_or_key(response, key)
+        except ValueError:
+            # google-genai's text property raises when a response has no text.
+            value = None
         if isinstance(value, str) and value:
             return value
 
@@ -160,9 +179,14 @@ def _response_payload(response: Any) -> dict[str, Any]:
     else:
         tool_calls = _serialize_tool_calls(_get_attr_or_key(response, "tool_calls"))
 
+    # Gemini exposes the model name as model_version.
+    model = _get_attr_or_key(response, "model")
+    if model is None:
+        model = _get_attr_or_key(response, "model_version")
+
     payload: dict[str, Any] = {
         "id": _get_attr_or_key(response, "id"),
-        "model": _get_attr_or_key(response, "model"),
+        "model": model,
         "finish_reason": _extract_finish_reason(response),
         "usage": _extract_usage(response),
     }
@@ -367,6 +391,11 @@ def _chunk_delta_content(chunk: Any) -> str | None:
         if isinstance(delta, str) and delta:
             return delta
 
+    # Gemini: text sits directly on the chunk
+    text = _get_attr_or_key(chunk, "text")
+    if isinstance(text, str) and text:
+        return text
+
     return None
 
 
@@ -379,6 +408,8 @@ def _chunk_usage(chunk: Any) -> dict[str, Any]:
 
 def _chunk_model(chunk: Any, fallback: str | None) -> str | None:
     model = _get_attr_or_key(chunk, "model")
+    if model is None:
+        model = _get_attr_or_key(chunk, "model_version")
     if isinstance(model, str) and model:
         return model
     return fallback
@@ -930,3 +961,17 @@ class AnthropicWrapper(_Proxy):
 class AnthropicMessagesWrapper(_Proxy):
     def create(self, *args: Any, **kwargs: Any) -> Any:
         return instrument_llm_call("anthropic", "messages.create", self._target.create, *args, **kwargs)
+
+
+class GeminiWrapper(_Proxy):
+    @property
+    def models(self) -> "GeminiModelsWrapper":
+        return GeminiModelsWrapper(self._target.models)
+
+
+class GeminiModelsWrapper(_Proxy):
+    def generate_content(self, *args: Any, **kwargs: Any) -> Any:
+        return instrument_llm_call("gemini", "models.generate_content", self._target.generate_content, *args, **kwargs)
+
+    def generate_content_stream(self, *args: Any, **kwargs: Any) -> Any:
+        return instrument_llm_call("gemini", "models.generate_content_stream", self._target.generate_content_stream, *args, **kwargs)

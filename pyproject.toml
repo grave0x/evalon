@@ -14,6 +14,7 @@ dependencies = [
 [project.optional-dependencies]
 providers = [
     "anthropic>=0.40.0",
+    "google-genai>=1.0.0",
     "openai>=1.0.0",
 ]
 cost = [
@@ -40,3 +41,8 @@ packages = ["evalon"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.uv.workspace]
+members = [
+    "evalon-quickstart",
+]

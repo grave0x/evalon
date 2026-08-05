@@ -8,7 +8,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, ContextManager
 
-from evalon.core.providers import AnthropicWrapper, OpenAIWrapper
+from evalon.core.providers import AnthropicWrapper, GeminiWrapper, OpenAIWrapper
 from evalon.core.paths import default_db_path
 from evalon.storage import JsonlStorage, SqliteStorage
 from evalon.core.tools import instrument_tool
@@ -109,15 +109,41 @@ class EvalonClient:
             client = AsyncOpenAI(**kwargs) if async_client else OpenAI(**kwargs)
         return OpenAIWrapper(client, provider="openai")
 
-    def openrouter(self, client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+    @staticmethod
+    def _openai_compatible(
+        provider: str,
+        base_url: str,
+        client: Any | None,
+        *,
+        async_client: bool,
+        kwargs: dict[str, Any],
+    ) -> OpenAIWrapper:
         if client is None:
             try:
                 from openai import AsyncOpenAI, OpenAI
             except ImportError as exc:
                 raise ImportError("Install the `openai` package or pass an OpenAI-compatible client.") from exc
-            kwargs.setdefault("base_url", "https://openrouter.ai/api/v1")
+            kwargs.setdefault("base_url", base_url)
             client = AsyncOpenAI(**kwargs) if async_client else OpenAI(**kwargs)
-        return OpenAIWrapper(client, provider="openrouter")
+        return OpenAIWrapper(client, provider=provider)
+
+    def openrouter(self, client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+        return self._openai_compatible("openrouter", "https://openrouter.ai/api/v1", client, async_client=async_client, kwargs=kwargs)
+
+    def groq(self, client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+        return self._openai_compatible("groq", "https://api.groq.com/openai/v1", client, async_client=async_client, kwargs=kwargs)
+
+    def mistral(self, client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+        return self._openai_compatible("mistral", "https://api.mistral.ai/v1", client, async_client=async_client, kwargs=kwargs)
+
+    def deepseek(self, client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+        return self._openai_compatible("deepseek", "https://api.deepseek.com", client, async_client=async_client, kwargs=kwargs)
+
+    def together(self, client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+        return self._openai_compatible("together", "https://api.together.xyz/v1", client, async_client=async_client, kwargs=kwargs)
+
+    def xai(self, client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+        return self._openai_compatible("xai", "https://api.x.ai/v1", client, async_client=async_client, kwargs=kwargs)
 
     def anthropic(self, client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> AnthropicWrapper:
         if client is None:
@@ -127,6 +153,15 @@ class EvalonClient:
                 raise ImportError("Install the `anthropic` package or pass an Anthropic client instance.") from exc
             client = AsyncAnthropic(**kwargs) if async_client else Anthropic(**kwargs)
         return AnthropicWrapper(client)
+
+    def gemini(self, client: Any | None = None, **kwargs: Any) -> GeminiWrapper:
+        if client is None:
+            try:
+                from google import genai
+            except ImportError as exc:
+                raise ImportError("Install the `google-genai` package or pass a genai.Client instance.") from exc
+            client = genai.Client(**kwargs)
+        return GeminiWrapper(client)
 
 
 def init(
@@ -275,6 +310,30 @@ def openrouter(client: Any | None = None, *, async_client: bool = False, **kwarg
 
 def anthropic(client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> AnthropicWrapper:
     return get_client().anthropic(client, async_client=async_client, **kwargs)
+
+
+def groq(client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+    return get_client().groq(client, async_client=async_client, **kwargs)
+
+
+def mistral(client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+    return get_client().mistral(client, async_client=async_client, **kwargs)
+
+
+def deepseek(client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+    return get_client().deepseek(client, async_client=async_client, **kwargs)
+
+
+def together(client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+    return get_client().together(client, async_client=async_client, **kwargs)
+
+
+def xai(client: Any | None = None, *, async_client: bool = False, **kwargs: Any) -> OpenAIWrapper:
+    return get_client().xai(client, async_client=async_client, **kwargs)
+
+
+def gemini(client: Any | None = None, **kwargs: Any) -> GeminiWrapper:
+    return get_client().gemini(client, **kwargs)
 
 
 def current_trace() -> Trace | None:
