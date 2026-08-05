@@ -1,0 +1,101 @@
+schema_version: 2
+
+evaluation_architecture:
+  harness:
+    scope: candidate invocation and evidence capture only
+    permitted: [candidate_invocation, evidence_capture]
+    prohibited: [callables, adapters, fixtures, credentials, setup_commands, execution_readiness_claims, execution_readiness_configuration]
+  environment:
+    scope: dependency mode, isolation, fidelity, and reset requirements only
+    permitted: [dependency_mode, isolation, fidelity_requirements, reset_requirements]
+    prohibited: [callables, adapters, fixtures, credentials, setup_commands, execution_readiness_claims, execution_readiness_configuration]
+  evaluation:
+    scope: comparison against independent truth and target-property judgment only
+    permitted: [independent_truth_comparison, target_property_judgment]
+    prohibited: [callables, adapters, fixtures, credentials, setup_commands, execution_readiness_claims, execution_readiness_configuration]
+
+failure_attribution:
+  categories: [missing_evidence, infrastructure, evaluator, dependency, ambiguous, agent]
+  precedence: [missing_evidence, infrastructure, evaluator, dependency, ambiguous, agent]
+  rules:
+    missing_evidence: indeterminate
+    infrastructure: indeterminate
+    evaluator: indeterminate
+    dependency: indeterminate
+    ambiguous: indeterminate
+    agent: fail_only_when_evidence_isolates_agent
+
+evalon_contract_sources:
+  - id: evalon-static-evaluator-contract
+    kind: evaluator_contract
+    root: replace-with-absolute-local-evalon-root
+    location: replace-with-current-evalon-contract-location
+    lines: replace-with-current-contract-lines
+    symbol: replace-with-current-evaluator-symbol
+    revision_or_version: replace-with-current-evalon-revision-or-version
+    # SHA-256 of the current bytes at root/location, not only the named revision.
+    content_sha256: replace-with-current-contract-file-sha256
+    # Concise stable slugs for predicates, payload fields, judge inputs, or validation behavior
+    # established by this exact source range. Routing, registration, and enum-only lines do not qualify.
+    establishes: [replace-with-contract-capability]
+    notes: replace-with-what-this-exact-range-establishes
+
+strategies:
+  - id: strategy-primary
+    risk_refs: [risk-primary]
+    target_property:
+      name: replace-with-one-property-name
+      definition: replace-with-a-precise-property-definition
+      # Atomic actual-behavior conditions. Never state what a judge, evaluator, or score returns.
+      criteria:
+        - id: criterion-primary
+          condition: replace-with-one-evaluator-independent-behavior-condition
+    stimulus_requirements:
+      requirements: []
+      prohibited_effects: []
+      safety_requirements: []
+      isolation_requirements: []
+      reset_requirements: []
+      fidelity_requirements: []
+    execution_shape:
+      interaction_kind: single_turn
+      environment_mode: frozen
+      reset_requirements: []
+      fidelity_requirements: []
+    evidence_sources: [candidate_output]
+    evaluator:
+      method: deterministic_assertion
+      evalon_type: static
+      rationale: replace-with-why-the-evaluator-fits-the-property
+    independent_truth:
+      availability: available
+      source_or_description: replace-with-independent-truth-source-or-description
+      limitations: []
+    measurement_status: fully_measurable
+    pass_if_and_only_if:
+      scope: target_property
+      rule: all_criteria_hold
+      # Must contain every target_property.criteria id, with no omissions or extras.
+      criterion_refs: [criterion-primary]
+    proof_scope:
+      proves: []
+      does_not_prove: []
+      residual_gaps: []
+    false_pass_risks: []
+    false_fail_risks: []
+    current_evalon_expressibility:
+      basis: evaluator_contract_only
+      evidence_assumption: declared_evidence_is_supplied
+      status: fully
+      supported_parts: []
+      missing_parts: []
+      source_refs: [evalon-static-evaluator-contract]
+      # Every named capability must appear in establishes for at least one source_refs entry.
+      required_contract_capabilities: [replace-with-contract-capability]
+      reason_if_unknown: null
+
+risk_disposition:
+  - risk_ref: risk-primary
+    strategy_refs: [strategy-primary]
+    disposition: fully_measured
+    residual_gap: null

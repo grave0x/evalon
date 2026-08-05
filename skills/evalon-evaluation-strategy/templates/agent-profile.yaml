@@ -1,0 +1,89 @@
+schema_version: 2
+workflow:
+  phase: profiling
+
+checkout_provenance:
+  checkout_root: replace-with-absolute-or-project-root-path
+  vcs_kind: git
+  revision: replace-with-inspected-revision-or-unknown
+  branch_or_detached_state: replace-with-branch-detached-or-unknown
+  dirty_state: unknown
+  inspected_at: replace-with-ISO-8601-time
+
+agent:
+  name: replace-with-agent-name
+  slug: replace-with-agent-slug
+  purpose_claim_ref: claim-agent-purpose
+  entry_points: []
+
+inspection_scope:
+  roots: []
+  included_paths: []
+  excluded_paths: []
+  limitations: []
+  scout_assignments: []
+
+sources:
+  - id: source-primary
+    kind: code
+    # One repository-relative regular file under checkout_provenance.checkout_root; no combined paths or traversal.
+    location: path/to/file.py
+    # One or more current positive N or N-M ranges for that exact file.
+    lines: 1-20
+    symbol: optional.symbol
+    provenance: inspected-primary-source
+    notes: replace-with-what-this-source-establishes
+
+claims:
+  - id: claim-agent-purpose
+    subject: agent.purpose
+    statement: replace-with-source-grounded-statement
+    source_refs: [source-primary]
+    confidence: verified
+    enforcement: code
+
+input_contracts: []
+output_contracts: []
+
+instructions:
+  system_prompts: []
+  developer_instructions: []
+  runtime_instructions: []
+
+capabilities:
+  - id: capability-primary
+    description: replace-with-capability
+    claim_refs: [claim-agent-purpose]
+    interactions: []
+
+tools: []
+side_effects: []
+
+state:
+  memory: []
+  session: []
+  durable: []
+  shared: []
+
+external_services: []
+knowledge_sources: []
+policies: []
+
+observability:
+  outputs: []
+  tool_calls: []
+  tool_arguments: []
+  tool_order: []
+  traces: []
+  callbacks: []
+  state_changes: []
+  errors: []
+  cost: []
+  latency: []
+  unobservable: []
+
+tests_and_observed_behavior: []
+known_failures: []
+known_limitations: []
+unknowns: []
+source_conflicts: []

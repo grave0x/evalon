@@ -20,3 +20,7 @@ wheels/
 /evalon-runs.sqlite
 /evalon-runs.sqlite-shm
 /evalon-runs.sqlite-wal
+
+# Local draft skills
+/skills/evalon-static-eval-generation/
+/skills/skill-draft-2/

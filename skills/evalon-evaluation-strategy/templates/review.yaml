@@ -1,0 +1,51 @@
+schema_version: 2
+
+review:
+  status: pending
+  reviewed_at: null
+
+profile_review:
+  important_claims_without_sources: []
+  inferred_or_unknown_claims: []
+  source_conflicts: []
+  inspection_gaps: []
+
+risk_review:
+  critical_risk_refs: []
+  high_risk_refs: []
+  capabilities_without_risks: []
+  unsupported_risk_assumptions: []
+  interaction_gaps: []
+
+strategy_review:
+  risks_without_strategy_disposition: []
+  risks_only_partially_measured: []
+  risks_not_currently_measurable: []
+  weak_proxy_strategies: []
+  missing_evidence: []
+  false_pass_conditions: []
+  false_fail_conditions: []
+  unsafe_stimuli_rejected: []
+  current_evalon_expression_gaps: []
+  failure_attribution_findings: []
+  # Confirm criterion refs cover every target criterion and do not state evaluator outputs.
+  target_criteria_and_pass_refs: []
+  # Confirm strategy measurement status supports each risk disposition.
+  measurement_and_risk_disposition: []
+  # Confirm capability/risk and strategy/risk reverse mappings are complete.
+  reverse_mappings: []
+  # Confirm every claim and risk has source support and every capability has claim support.
+  source_grounding: []
+  # Confirm each exact source range establishes the required evaluator predicate, payload field,
+  # judge input, or validation behavior; registry, routing, and enum-only references are insufficient.
+  evalon_contract_capability_coverage: []
+  # Confirm each Evalon contract source SHA-256 matches current inspected bytes.
+  evalon_contract_hashes: []
+
+validation_findings: []
+
+conclusion:
+  highest_priority_risks: []
+  strongest_strategy_refs: []
+  main_observability_gaps: []
+  unresolved_unknowns: []
