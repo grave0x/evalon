@@ -1,0 +1,12 @@
+schema_version: 2
+
+review:
+  status: pending
+  reviewed_at: null
+
+severity_ledger:
+  critical_risk_refs: []
+  high_risk_refs: []
+
+findings: []
+unresolved_unknowns: []

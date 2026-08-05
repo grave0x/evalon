@@ -1,0 +1,13 @@
+schema_version: 2
+
+risks:
+  - id: risk-primary
+    capability_refs: [capability-primary]
+    plausible_failure: replace-with-plausible-failure
+    consequence: replace-with-user-system-or-data-impact
+    severity: high
+    evidence: []
+    observability_gaps: []
+    source_refs: [source-primary]
+    confidence: inferred
+    existing_controls: []
